@@ -1,0 +1,39 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: shortener
+    ports: ["5432:5432"]
+    volumes:
+      - ./migrations:/docker-entrypoint-initdb.d
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d shortener"]
+      interval: 3s
+      retries: 10
+  redis:
+    image: redis:7
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      retries: 10
+  app:
+    build: .
+    ports: ["3000:3000"]
+    environment:
+      DATABASE_URL: postgres://app:app@postgres:5432/shortener
+      REDIS_URL: redis://redis:6379
+      BASE_URL: http://localhost:3000
+      CACHE_ENABLED: "true"
+      RATE_LIMIT_SHORTEN: "60"
+      RATE_LIMIT_REDIRECT: "0"
+      WORKERS: "1"
+      PG_POOL_SIZE: "10"
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+volumes:
+  pgdata:
